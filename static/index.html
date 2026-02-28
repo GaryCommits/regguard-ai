@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RegGuard AI</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
+  <style>
+    .neon { text-shadow: 0 0 15px #00ff9d; }
+    .tab-active { border-bottom: 3px solid #00ff9d; color: #00ff9d; }
+  </style>
+</head>
+<body class="bg-zinc-950 text-zinc-200 min-h-screen">
+  <div class="max-w-4xl mx-auto p-8">
+    <!-- Header -->
+    <div class="flex items-center justify-between mb-12">
+      <div class="flex items-center gap-4">
+        <div class="w-12 h-12 bg-emerald-500 rounded-2xl flex items-center justify-center text-3xl">🛡️</div>
+        <div>
+          <h1 class="text-5xl font-bold neon">RegGuard AI</h1>
+          <p class="text-emerald-400 text-lg">EU AI Act Compliance in seconds</p>
+        </div>
+      </div>
+      <div class="text-emerald-400 text-sm">Ireland's AI Sheriff • Ready for 2 Aug 2026</div>
+    </div>
+
+    <!-- Tabs -->
+    <div class="flex border-b border-zinc-800 mb-10">
+      <button onclick="switchTab(0)" id="tab0" class="tab-active px-10 py-5 text-xl font-medium">Text Mode</button>
+      <button onclick="switchTab(1)" id="tab1" class="px-10 py-5 text-xl font-medium text-zinc-400 hover:text-zinc-200">Upload PDF / Screenshot / Code</button>
+    </div>
+
+    <!-- Text Tab -->
+    <div id="tab0-content" class="tab-content">
+      <textarea id="desc" rows="5" class="w-full bg-zinc-900 border border-zinc-700 rounded-3xl p-6 text-lg focus:outline-none focus:border-emerald-500 resize-none" placeholder="Describe your AI system..."></textarea>
+      <div class="flex flex-wrap gap-3 mt-4">
+        <button onclick="useExample('HR chatbot with facial recognition for candidate screening')" class="text-sm bg-zinc-800 hover:bg-zinc-700 px-5 py-3 rounded-2xl">HR + Face Scan</button>
+        <button onclick="useExample('Predictive maintenance AI in manufacturing')" class="text-sm bg-zinc-800 hover:bg-zinc-700 px-5 py-3 rounded-2xl">Factory Predictive AI</button>
+        <button onclick="useExample('AI loan approval scoring system')" class="text-sm bg-zinc-800 hover:bg-zinc-700 px-5 py-3 rounded-2xl">Loan Scoring AI</button>
+      </div>
+      <button onclick="classify()" class="mt-8 w-full bg-emerald-500 hover:bg-emerald-600 text-black font-bold py-6 rounded-3xl text-2xl transition-all">CLASSIFY WITH REGGUARD AI</button>
+    </div>
+
+    <!-- Upload Tab -->
+    <div id="tab1-content" class="tab-content hidden">
+      <div id="drop-zone" class="border-4 border-dashed border-zinc-700 hover:border-emerald-500 rounded-3xl p-20 text-center transition-all cursor-pointer">
+        <i class="fa-solid fa-cloud-arrow-up text-7xl text-emerald-500 mb-8"></i>
+        <p class="text-2xl mb-2">Drop PDF, screenshot, or code file here</p>
+        <p class="text-zinc-500">or</p>
+        <label class="mt-6 inline-block bg-zinc-800 hover:bg-zinc-700 px-10 py-5 rounded-2xl cursor-pointer text-lg">
+          Choose File
+          <input type="file" id="file" class="hidden" onchange="uploadFile()">
+        </label>
+      </div>
+    </div>
+
+    <!-- Result -->
+    <div id="result" class="mt-12 hidden"></div>
+  </div>
+
+  <script>
+    let lastResult = null;
+
+    function switchTab(n) {
+      document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+      document.getElementById(`tab${n}-content`).classList.remove('hidden');
+      document.querySelectorAll('button[id^="tab"]').forEach((el, i) => el.classList.toggle('tab-active', i===n));
+    }
+
+    async function classify() {
+      const desc = document.getElementById("desc").value.trim();
+      if (!desc) return alert("Describe your AI system");
+      showLoading();
+      const res = await fetch("/classify", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({description: desc})});
+      const data = await res.json();
+      showResult(data.result);
+    }
+
+    async function uploadFile() {
+      const file = document.getElementById("file").files[0];
+      if (!file) return alert("Choose a file");
+      showLoading();
+      const form = new FormData();
+      form.append("file", file);
+      const res = await fetch("/upload", {method:"POST", body:form});
+      const data = await res.json();
+      showResult(data.result);
+    }
+
+    function showLoading() {
+      document.getElementById("result").innerHTML = `
+        <div class="text-center py-24">
+          <div class="animate-spin w-16 h-16 border-4 border-emerald-500 border-t-transparent rounded-full mx-auto"></div>
+          <p class="mt-8 text-emerald-400 text-2xl">Claude Haiku 4.5 + RAG analysing...</p>
+        </div>`;
+      document.getElementById("result").classList.remove("hidden");
+    }
+
+    function showResult(data) {
+      const riskColor = data.risk_level === "prohibited" ? "red" : data.risk_level === "high" ? "orange" : data.risk_level === "limited" ? "yellow" : "emerald";
+      lastResult = JSON.stringify(data, null, 2);
+
+      document.getElementById("result").innerHTML = `
+        <div class="bg-zinc-900 border border-zinc-700 rounded-3xl p-10">
+          <div class="flex items-center gap-5 mb-8">
+            <div class="px-8 py-3 bg-${riskColor}-600 text-white font-bold text-3xl rounded-2xl uppercase">${data.risk_level}</div>
+            <div class="text-5xl">⚠️</div>
+          </div>
+          
+          <div class="grid md:grid-cols-2 gap-8">
+            <div><h3 class="text-emerald-400 text-sm mb-2">REASON</h3><p class="text-lg">${data.reason}</p></div>
+            <div><h3 class="text-emerald-400 text-sm mb-2">HUMAN OVERSIGHT</h3><p class="text-lg">${data.human_oversight}</p></div>
+          </div>
+
+          <div class="mt-10">
+            <h3 class="text-emerald-400 text-sm mb-4">REQUIRED DOCUMENTS</h3>
+            <div class="grid md:grid-cols-2 gap-4">
+              ${data.docs_needed.map(d => `<div class="bg-zinc-800 px-6 py-5 rounded-2xl flex items-center gap-3"><span class="text-xl">📄</span>${d}</div>`).join('')}
+            </div>
+          </div>
+
+          <div class="mt-10 bg-zinc-950 border border-zinc-800 rounded-2xl p-8">
+            <h3 class="text-emerald-400 text-sm mb-3">NEXT STEPS</h3>
+            <p class="text-lg leading-relaxed">${data.next_steps}</p>
+          </div>
+
+          <div class="grid grid-cols-2 gap-4 mt-10">
+            <button onclick="copyResult()" class="bg-zinc-800 hover:bg-zinc-700 py-5 rounded-2xl font-medium flex items-center justify-center gap-3">
+              <i class="fa-solid fa-copy"></i> Copy Full JSON
+            </button>
+            <button onclick="downloadPDF()" class="bg-emerald-500 hover:bg-emerald-600 text-black py-5 rounded-2xl font-medium flex items-center justify-center gap-3">
+              <i class="fa-solid fa-file-pdf"></i> Download PDF Report
+            </button>
+          </div>
+        </div>
+      `;
+      document.getElementById("result").classList.remove("hidden");
+    }
+
+    function copyResult() {
+      if (lastResult) navigator.clipboard.writeText(lastResult).then(() => alert("✅ Full JSON copied!")).catch(() => alert("Copy failed"));
+    }
+
+    function downloadPDF() {
+      if (!lastResult) return alert("Run a classification first");
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF();
+      doc.setFontSize(20);
+      doc.text("RegGuard AI Compliance Report", 20, 20);
+      doc.setFontSize(12);
+      doc.text("Generated: " + new Date().toLocaleString(), 20, 30);
+      doc.text(lastResult, 20, 50, {maxWidth: 170});
+      doc.save("RegGuard_Report.pdf");
+      alert("✅ PDF downloaded!");
+    }
+
+    function useExample(text) {
+      document.getElementById("desc").value = text;
+      classify();
+    }
+
+    // Drag & Drop
+    const dropZone = document.getElementById("drop-zone");
+    dropZone.addEventListener("dragover", e => { e.preventDefault(); dropZone.classList.add("border-emerald-500", "bg-zinc-900"); });
+    dropZone.addEventListener("dragleave", () => dropZone.classList.remove("border-emerald-500", "bg-zinc-900"));
+    dropZone.addEventListener("drop", e => {
+      e.preventDefault();
+      dropZone.classList.remove("border-emerald-500", "bg-zinc-900");
+      const file = e.dataTransfer.files[0];
+      if (file) {
+        document.getElementById("file").files = e.dataTransfer.files;
+        uploadFile();
+      }
+    });
+
+    switchTab(0);
+  </script>
+</body>
+</html>
